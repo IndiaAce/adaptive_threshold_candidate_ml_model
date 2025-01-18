@@ -56,6 +56,6 @@ index="adaptive-threshold_ml_training" sourcetype="csv"
 --------------------------------------------------------------------------------
 LICENSE AND CONTRIBUTIONS
 
-Collaboration and feature requests are welcome.
+Collaboration and feature requests are always welcome.
 
 --------------------------------------------------------------------------------
