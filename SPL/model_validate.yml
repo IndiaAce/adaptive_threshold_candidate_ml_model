@@ -1,0 +1,56 @@
+id: model_validate
+title: Model Validate Search
+description: |
+  This search validates the model by comparing the predictions with the actual values.
+  It uses the RandomForest model trained in the previous step.
+  The model is validated on the same data that was used for training.
+  The search computes the confusion matrix and accuracy of the model.
+  The model is saved to the "adaptive-threashold_ml_model" index.
+content: |
+  index="adaptive-threashold_ml_training" sourcetype="csv"
+  | eval hour_of_day = coalesce(hour_of_day, tonumber(strftime(_time, "%H")))
+  | eval day_of_week = coalesce(day_of_week, strftime(_time, "%w"))
+
+  | eval fit_label = case(
+      kpi_type=="consistent","fit",
+      kpi_type=="erratic","not_fit",
+      kpi_type=="combination","maybe_fit"
+  )
+
+  ```
+    Create 4 blocks (morning, lunch, afternoon, night).
+    Adjust hour ranges as desired:
+    - Morning:   6 AM–10:59 AM
+    - Lunch:     11 AM–1:59 PM
+    - Afternoon: 2 PM–5:59 PM
+    - Night:     everything else
+  ```
+  | eval block_of_day = case(
+      hour_of_day >= 6 AND hour_of_day < 11, "morning",
+      hour_of_day >= 11 AND hour_of_day < 14, "lunch",
+      hour_of_day >= 14 AND hour_of_day < 18, "afternoon",
+      1=1, "night"
+  )
+
+  ```
+    Aggregate by kpi_name (one row per KPI).
+    Compute overall average/stdev plus stdev for each time block.
+  ```
+  | stats 
+      avg(value) as overall_avg
+      stdev(value) as overall_stdev
+      stdev(eval(if(block_of_day=="morning",   value, NULL))) as stdev_morning
+      stdev(eval(if(block_of_day=="lunch",     value, NULL))) as stdev_lunch
+      stdev(eval(if(block_of_day=="afternoon", value, NULL))) as stdev_afternoon
+      stdev(eval(if(block_of_day=="night",     value, NULL))) as stdev_night
+      by kpi_name fit_label
+
+  ```
+    Train a RandomForest model on these features. 
+    "fit_label" is our target (fit, not_fit, maybe_fit).
+  ```
+  | fit RandomForestClassifier fit_label 
+        from overall_avg overall_stdev 
+            stdev_morning stdev_lunch 
+            stdev_afternoon stdev_night
+        into "KPI_fitness_model"
