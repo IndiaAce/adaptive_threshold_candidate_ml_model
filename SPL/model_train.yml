@@ -1,0 +1,139 @@
+id: model_train
+title: Model Train Search, Steps, and Deploy
+search: |
+   index="adaptive-threashold_ml_training" sourcetype="csv"
+   | eval hour_of_day = coalesce(hour_of_day, tonumber(strftime(_time, "%H")))
+   | eval day_of_week = coalesce(day_of_week, strftime(_time, "%w"))
+
+   | eval fit_label = case(
+      kpi_type=="consistent","fit",
+      kpi_type=="erratic","not_fit",
+      kpi_type=="combination","maybe_fit"
+   )
+
+   ```
+      Flag weekends vs. weekdays 
+      (Sat=6, Sun=0 in some strftime variants).
+      ```
+   | eval is_weekend = if(day_of_week=="6" OR day_of_week=="0", 1, 0)
+
+   ```
+      Create time-of-day blocks:
+      - morning   = 6–10 AM
+      - lunch     = 11–13 PM
+      - afternoon = 14–17 PM
+      - night     = everything else
+      ```
+   | eval block_of_day = case(
+      hour_of_day>=6  AND hour_of_day<11,"morning",
+      hour_of_day>=11 AND hour_of_day<14,"lunch",
+      hour_of_day>=14 AND hour_of_day<18,"afternoon",
+      1=1,"night"
+   )
+
+   ```
+      Aggregate into one row per KPI+label. 
+      We calculate:
+      - overall_avg / overall_stdev
+      - stdev(weekday), stdev(weekend)
+      - stdev(morning), stdev(lunch), stdev(afternoon), stdev(night)
+      - range_value = max(value) - min(value)
+      ```
+   | stats
+      avg(value) as overall_avg
+      stdev(value) as overall_stdev
+      stdev(eval(if(is_weekend=0, value, NULL))) as stdev_weekday
+      stdev(eval(if(is_weekend=1, value, NULL))) as stdev_weekend
+      stdev(eval(if(block_of_day=="morning",   value, NULL))) as stdev_morning
+      stdev(eval(if(block_of_day=="lunch",     value, NULL))) as stdev_lunch
+      stdev(eval(if(block_of_day=="afternoon", value, NULL))) as stdev_afternoon
+      stdev(eval(if(block_of_day=="night",     value, NULL))) as stdev_night
+      range(value) as range_value
+      by kpi_name fit_label
+
+   ```
+      Handle any null stdevs (if a KPI has no data in one block). 
+      Also fill null range_value if needed.
+      ```
+   | fillnull value=0 overall_avg overall_stdev stdev_* range_value
+
+   ```
+      Create ratio features. 
+      (Add as many as you like/as many are relevant to the live KPIs—these can help capture patterns.)
+      ```
+   | eval weekend_weekday_stdev_ratio = round(stdev_weekend/(stdev_weekday+0.0001),2)
+   | eval morning_afternoon_stdev_ratio = round(stdev_morning/(stdev_afternoon+0.0001),2)
+
+   ```
+      Now train a RandomForestClassifier. 
+      'fit_label' is our target (fit, not_fit, maybe_fit).
+      from ...
+      is the list of features we want the model to use.
+      ```
+   | fit RandomForestClassifier fit_label from 
+      overall_avg 
+      overall_stdev 
+      stdev_morning 
+      stdev_lunch 
+      stdev_afternoon 
+      stdev_night 
+      stdev_weekday 
+      stdev_weekend
+      range_value 
+      weekend_weekday_stdev_ratio 
+      morning_afternoon_stdev_ratio
+   into "KPI_fitness_model_pro"
+
+description: |
+  The following is a step-by-step guide to use MLTK to train a model and deploy through the GUI
+  The model is trained on the "adaptive-threashold_ml_training" index.
+
+  You can simply run the search above and it will create the model for you,
+
+  HOWEVER
+
+  I would suggest commenting out stanzas 73 - 85 as those fit the model.
+  You will want to make sure the data looks correct for your given KPI before doing that.
+  After validating the data looks good, you can uncomment those lines and run the search.
+
+  After that, you can simply run the model against any index/dataset by simply using the following command:
+  | apply "KPI_fitness_model_pro" 
+
+
+  Alternative Steps:
+  1. Go to MLTK app.
+  2. Click on "Models" tab.
+  3. Click on "Create New Model" button.
+  4. Click on "Add Data" button.
+  5. Select "adaptive-threashold_ml_training" as the index.
+  6. Click on "Next" button.
+  7. Select "RandomForestClassifier" as the algorithm.
+  8. Select "fit_label" as the target field.
+  9. Select "overall_avg" and "overall_stdev" as the features.
+  10. Click on "Next" button.
+  11. Click on "Start" button.
+  12. Wait for the model to train.
+  13. Click on "Deploy" button.
+  14. Select "adaptive-threashold_ml_model" as the index.
+  15. Click on "Deploy" button.
+  16. Wait for the model to deploy.
+
+  Alternative Steps:
+  1. Go to MLTK app.
+  2. Click on "Experiments" tab.
+  3. Click on "Create New Experiment" button.
+  4. Click on "Add Search" button.
+  5. Paste the following search. And verify the data looks correct
+     Search:
+     SPL
+  6. Click on "Next" button.
+  7. Select "RandomForestClassifier" as the algorithm.
+  8. Select "fit_label" as the target field.
+  9. Select "overall_avg" and "overall_stdev" as the features.
+  10. Click on "Next" button.
+  11. Click on "Start" button.
+  12. Wait for the model to train.
+  13. Click on "Deploy" button.
+  14. Select "adaptive-threashold_ml_model" as the index.
+  15. Click on "Deploy" button.
+  16. Wait for the model to deploy.
