@@ -6,6 +6,8 @@ Say for this log in model_test.csv
 The avg value for the kpi in the hour 10:00:00.000 is 432.4989059080963
 And the values for all subsequent KPIs will be represented in a similar way.
 
+The script needs to generate data for all the use cases included in the script, some of it needs to be consistent. Now that's not to say consistent from hour to hour, maybe the "avg(alert_value)" for user logins are "consistent" at 9 and 12 every weekday, and then drop off, even having avg values of 0 in the weekends/nights. This is expected and consistent. Then there needs to be some very eratic data that is never consistent like values of CPU%
+
 The Model needs to look at the KPI average hour to hour, day to day, and says:
     "yes this is a good candidate" or "no this is not a good candidate" 
     based on various consistencies from day to day but also hour to hour
