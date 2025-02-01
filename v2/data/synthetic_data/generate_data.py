@@ -3,7 +3,7 @@ import numpy as np
 import random
 import os
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 # -----------------------
 # CONFIGURATION
@@ -43,11 +43,10 @@ KPI_NAMES = [
     "Web_Access_Errors"
 ]
 
-# Distribution of KPI types (change as needed)
-# e.g. 30 consistent, 30 erratic, 40 combination
-CONSISTENT_COUNT = 30
-ERRATIC_COUNT = 30
-COMBINATION_COUNT = 40
+# Distribution of KPI types (adjusted as requested)
+CONSISTENT_COUNT = 40
+ERRATIC_COUNT = 40
+COMBINATION_COUNT = 20
 
 # Output directory for CSV files
 OUTPUT_DIR = "synthetic_kpi_data"
@@ -66,9 +65,8 @@ def generate_timestamps(start_date, days, freq="H"):
     at the specified frequency (default hourly). We use a fixed offset of -05:00.
     """
     start = pd.to_datetime(start_date)
-    # Create a timezone with a fixed offset of -300 minutes (-05:00)
-    tz = pd.FixedOffset(-300)
-    # Generate a date_range with the given frequency and assign the timezone
+    # Create a timezone with a fixed offset of -5 hours
+    tz = timezone(timedelta(hours=-5))
     dt_index = pd.date_range(start, periods=days*24, freq=freq, tz=tz)
     return dt_index
 
@@ -84,7 +82,7 @@ def generate_consistent_pattern(timestamps, kpi_name):
     """
     values = []
     if "logon" in kpi_name.lower():
-        # Special pattern for user logons (or similar) – peaks only at 9:00 and 12:00 on weekdays.
+        # Special pattern for user logons – peaks only at 9:00 and 12:00 on weekdays.
         for ts in timestamps:
             if ts.dayofweek < 5:  # Weekday
                 if ts.hour in [9, 12]:
@@ -214,8 +212,10 @@ def main():
         
         df_kpi = generate_kpi_data(kpi_name, kpi_type, itsi_kpi_id, timestamps)
         
-        # Save each KPI's data to its own CSV file.
-        filename = f"{itsi_kpi_id}.csv"
+        # Append a suffix to the filename to make it human readable.
+        # For the 'combination' type, we'll use the suffix 'combined'
+        suffix = kpi_type if kpi_type != "combination" else "combined"
+        filename = f"{kpi_name}_{suffix}.csv"
         filepath = os.path.join(OUTPUT_DIR, filename)
         df_kpi.to_csv(filepath, index=False)
         print(f"Generated {filepath} for KPI '{kpi_name}' (type: {kpi_type}).")
