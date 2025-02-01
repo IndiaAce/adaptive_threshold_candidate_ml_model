@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import random
 import os
+import secrets
 from datetime import datetime, timedelta
 
 # -----------------------
@@ -10,8 +11,9 @@ from datetime import datetime, timedelta
 NUM_KPIS = 100
 DAYS = 365
 START_DATE = "2024-01-01"  # Adjust as needed
+
+# A list of example KPI names. (Feel free to adjust or generate dynamically.)
 KPI_NAMES = [
-    # A list of example KPI names. Customize as needed or generate them dynamically.
     "CPU_Usage", "Memory_Usage", "Disk_Usage", "MFA_Fails", "User_Logons", 
     "API_Latency", "Error_Rate", "Throughput", "Queue_Depth", "Payment_Transactions",
     "Network_Usage", "Session_Count", "Login_Attempts", "Transaction_Duration",
@@ -41,10 +43,7 @@ KPI_NAMES = [
     "Web_Access_Errors"
 ]
 
-# If you have fewer or more than 100 names in KPI_NAMES,
-# the script will handle them, repeating or truncating as needed.
-
-# Distribution of KPI types
+# Distribution of KPI types (change as needed)
 # e.g. 30 consistent, 30 erratic, 40 combination
 CONSISTENT_COUNT = 30
 ERRATIC_COUNT = 30
@@ -56,153 +55,124 @@ OUTPUT_DIR = "synthetic_kpi_data"
 # -----------------------
 # HELPER FUNCTIONS
 # -----------------------
+
+def generate_kpi_id():
+    """Generate a random 24-character hexadecimal string (e.g., similar to a MongoDB ObjectID)."""
+    return secrets.token_hex(12)
+
 def generate_timestamps(start_date, days, freq="H"):
     """
-    Generate a DatetimeIndex starting from start_date, covering 'days' days 
-    at the specified frequency (default hourly).
+    Generate a timezone-aware DatetimeIndex starting from start_date, covering 'days' days 
+    at the specified frequency (default hourly). We use a fixed offset of -05:00.
     """
     start = pd.to_datetime(start_date)
-    end = start + timedelta(days=days)
-    # end is exclusive, so to get full 365 days hourly: range should be up to end
-    # We'll generate 365 * 24 = 8760 hours
-    dt_index = pd.date_range(start, periods=days*24, freq=freq)
+    # Create a timezone with a fixed offset of -300 minutes (-05:00)
+    tz = pd.FixedOffset(-300)
+    # Generate a date_range with the given frequency and assign the timezone
+    dt_index = pd.date_range(start, periods=days*24, freq=freq, tz=tz)
     return dt_index
 
-def is_weekend_func(day_of_week):
-    """ Return True if day_of_week is Sat (5) or Sun (6). """
-    return day_of_week >= 5
-
-def rolling_stats(series, window=3):
+def generate_consistent_pattern(timestamps, kpi_name):
     """
-    Calculate rolling average and rolling std for a given series.
-    Using a minimum period so that the first few hours still get a result.
-    """
-    rolling_avg = series.rolling(window=window, min_periods=1).mean()
-    rolling_std = series.rolling(window=window, min_periods=1).std().fillna(0)
-    return rolling_avg, rolling_std
-
-def generate_consistent_pattern(timestamps):
-    """
-    Generate a consistent pattern: e.g., daily cycles with smaller random noise.
-    Incorporate hour-of-day and day-of-week effects.
-    """
-    base_values = []
-    for ts in timestamps:
-        hour = ts.hour
-        day_of_week = ts.dayofweek
-        
-        # Simple baseline that changes by hour.
-        # For instance, let's assume highest usage midday, lower usage at night
-        daily_cycle = 10 + 5 * np.sin((hour / 24) * 2 * np.pi)  # Sine wave for day cycle
-        
-        # Weekly effect: slight increase on weekdays vs weekends (just an example)
-        if day_of_week < 5:
-            weekly_factor = 1.0  # weekdays
-        else:
-            weekly_factor = 0.8  # weekends
-        
-        # Combine the factors
-        value = (daily_cycle * weekly_factor) + random.uniform(-1, 1)  # add small random noise
-        base_values.append(value)
-        
-    return pd.Series(base_values, index=timestamps)
-
-def generate_erratic_pattern(timestamps):
-    """
-    Generate an erratic pattern: random spikes, irregular fluctuations.
+    For "consistent" KPIs, we return a repeatable daily pattern.
+    
+    • If the KPI name contains "logon" (e.g., User_Logons), then on weekdays
+      only the 9:00 and 12:00 hours produce a high value while other hours (and weekends)
+      return nearly 0.
+      
+    • Otherwise, we use a fixed hourly pattern (the same for every weekday) and return 0 on weekends.
     """
     values = []
-    current_value = 50  # arbitrary starting point
-    
-    for ts in timestamps:
-        # step can be large or small, up or down
-        step = random.uniform(-5, 5)  # normal hourly change
-        # occasionally inject big spikes
-        if random.random() < 0.01:  # 1% chance
-            step = random.uniform(-50, 50)
-        
-        current_value += step
-        # Floor to 0 to avoid negative if it doesn't make sense (you can remove if negatives are valid)
-        current_value = max(0, current_value)
-        values.append(current_value)
-    
+    if "logon" in kpi_name.lower():
+        # Special pattern for user logons (or similar) – peaks only at 9:00 and 12:00 on weekdays.
+        for ts in timestamps:
+            if ts.dayofweek < 5:  # Weekday
+                if ts.hour in [9, 12]:
+                    val = random.uniform(200, 300)
+                else:
+                    val = random.uniform(0, 10)
+            else:
+                val = 0
+            values.append(val)
+    else:
+        # Define a fixed pattern for hours 0-23. (You can adjust these base values as needed.)
+        hourly_pattern = [200, 190, 180, 170, 160, 150, 750, 400, 370, 470, 
+                          385, 365, 370, 250, 400, 370, 350, 330, 320, 310, 
+                          300, 290, 280, 270]
+        for ts in timestamps:
+            if ts.dayofweek < 5:  # Weekday
+                base = hourly_pattern[ts.hour] if ts.hour < len(hourly_pattern) else 300
+                # Add a small random noise
+                val = base + random.uniform(-20, 20)
+            else:
+                val = 0
+            values.append(val)
     return pd.Series(values, index=timestamps)
 
-def generate_combination_pattern(timestamps):
+def generate_erratic_pattern(timestamps, kpi_name):
     """
-    Generate a combination pattern: partly consistent daily cycle + random spikes.
-    """
-    consistent_series = generate_consistent_pattern(timestamps)
-    # Add random spikes on top
-    combined_values = []
-    for val in consistent_series:
-        # 3% chance of a large spike or drop
-        if random.random() < 0.03:
-            spike = random.uniform(-20, 20)
-        else:
-            spike = 0
-        combined_values.append(val + spike)
+    Generate an erratic pattern using a random walk.
     
-    return pd.Series(combined_values, index=timestamps)
+    • If the KPI name contains "cpu", then the values stay within 0–100 (suitable for percentages).
+    • Otherwise, we use a random walk starting at 400.
+    """
+    values = []
+    if "cpu" in kpi_name.lower():
+        current_value = random.uniform(20, 80)
+        for ts in timestamps:
+            step = random.uniform(-5, 5)
+            # Occasionally inject a larger spike/drop
+            if random.random() < 0.01:
+                step = random.uniform(-20, 20)
+            current_value += step
+            current_value = max(0, min(100, current_value))
+            values.append(current_value)
+    else:
+        current_value = 400
+        for ts in timestamps:
+            step = random.uniform(-20, 20)
+            if random.random() < 0.01:
+                step = random.uniform(-100, 100)
+            current_value += step
+            current_value = max(0, current_value)
+            values.append(current_value)
+    return pd.Series(values, index=timestamps)
 
-def insert_anomalies(series, factor=3, anomaly_prob=0.01):
+def generate_combination_pattern(timestamps, kpi_name):
     """
-    Mark certain points as anomalies based on a probability or 
-    if they deviate significantly from local rolling stats.
-    
-    Return a boolean Series indicating anomalies.
+    Generate a combination pattern by taking a consistent pattern and adding occasional spikes.
     """
-    # We'll do a simple approach: each point has a small chance (anomaly_prob) 
-    # to become an anomaly by random injection. 
-    # Or you could refine by checking actual deviation from rolling stats.
-    is_anomaly = pd.Series(False, index=series.index)
-    
-    # Probability-based injection
-    anomaly_indices = np.where(np.random.rand(len(series)) < anomaly_prob)[0]
-    for idx in anomaly_indices:
-        is_anomaly.iloc[idx] = True
-    
-    return is_anomaly
+    base_series = generate_consistent_pattern(timestamps, kpi_name)
+    values = []
+    for val in base_series:
+        # With a 3% chance, add a spike (or drop)
+        spike = random.uniform(-50, 50) if random.random() < 0.03 else 0
+        values.append(val + spike)
+    return pd.Series(values, index=timestamps)
 
-def generate_kpi_data(kpi_name, kpi_type, timestamps):
+def generate_kpi_data(kpi_name, kpi_type, itsi_kpi_id, timestamps):
     """
-    Generate the DataFrame for a single KPI with the specified type.
+    Generate a DataFrame for one KPI.
+    
+    The output DataFrame has three columns:
+      • _time: the formatted timestamp (ISO format with milliseconds and timezone offset)
+      • itsi_kpi_id: a unique id for the KPI
+      • avg(alert_value): the generated value
     """
-    # Step 1: Generate base values according to the type
     if kpi_type == 'consistent':
-        base_series = generate_consistent_pattern(timestamps)
+        base_series = generate_consistent_pattern(timestamps, kpi_name)
     elif kpi_type == 'erratic':
-        base_series = generate_erratic_pattern(timestamps)
+        base_series = generate_erratic_pattern(timestamps, kpi_name)
     else:  # 'combination'
-        base_series = generate_combination_pattern(timestamps)
+        base_series = generate_combination_pattern(timestamps, kpi_name)
     
-    # Step 2: Determine day_of_week, hour_of_day, weekend, etc.
-    day_of_week = timestamps.dayofweek
-    hour_of_day = timestamps.hour
-    weekend_flags = day_of_week.map(is_weekend_func)
-    
-    # Step 3: Compute rolling stats
-    rolling_avg_series, rolling_std_series = rolling_stats(base_series, window=3)
-    
-    # Step 4: Insert anomalies
-    anomaly_series = insert_anomalies(base_series, anomaly_prob=0.01)
-    
-    # Step 5: Build the DataFrame
+    # Build a DataFrame with the desired three columns.
+    # Format the timestamp as: "YYYY-MM-DDTHH:MM:SS.000±ZZZZ"
     df = pd.DataFrame({
-        "timestamp": timestamps,
-        "value": base_series,
-        "kpi_name": kpi_name,
-        "day_of_week": day_of_week,
-        "hour_of_day": hour_of_day,
-        "is_weekend": weekend_flags,
-        # This is just a simplistic approach to units. You can refine or randomize as needed.
-        "unit": "count" if "Count" in kpi_name or "Fails" in kpi_name or "Logons" in kpi_name else "percentage",
-        "rolling_avg": rolling_avg_series,
-        "rolling_std": rolling_std_series,
-        "is_anomaly": anomaly_series,
-        "kpi_type": kpi_type
+        "_time": base_series.index.strftime("%Y-%m-%dT%H:%M:%S.000%z"),
+        "itsi_kpi_id": itsi_kpi_id,
+        "avg(alert_value)": base_series.values
     })
-    
     return df
 
 def ensure_output_dir(directory):
@@ -213,48 +183,50 @@ def ensure_output_dir(directory):
 # MAIN GENERATION SCRIPT
 # -----------------------
 def main():
-    # 1. Generate a DatetimeIndex for the year
+    # 1. Generate a timezone-aware DatetimeIndex for the period.
     timestamps = generate_timestamps(START_DATE, DAYS, freq="H")
     
-    # 2. Prepare KPI distribution
-    # If you have exactly 100 KPI names, you can shuffle them and assign types.
-    # Or if you have more than 100, it will truncate. If fewer, it will reuse.
+    # 2. Prepare the list of KPI names (repeat or truncate as needed).
     all_kpi_names = []
     while len(all_kpi_names) < NUM_KPIS:
         all_kpi_names.extend(KPI_NAMES)
     all_kpi_names = all_kpi_names[:NUM_KPIS]
-    
-    # Shuffle KPI names to randomize distribution
     random.shuffle(all_kpi_names)
     
-    kpi_types = []
-    kpi_types.extend(['consistent'] * CONSISTENT_COUNT)
-    kpi_types.extend(['erratic'] * ERRATIC_COUNT)
-    kpi_types.extend(['combination'] * COMBINATION_COUNT)
-    
-    # If the sum of the above does not match NUM_KPIS, adjust dynamically
+    # 3. Create a list of KPI types.
+    kpi_types = (['consistent'] * CONSISTENT_COUNT +
+                 ['erratic'] * ERRATIC_COUNT +
+                 ['combination'] * COMBINATION_COUNT)
     if len(kpi_types) < NUM_KPIS:
         kpi_types.extend(['combination'] * (NUM_KPIS - len(kpi_types)))
     kpi_types = kpi_types[:NUM_KPIS]
-    
-    # Shuffle the types for variety
     random.shuffle(kpi_types)
     
+    # 4. Create the output directory.
     ensure_output_dir(OUTPUT_DIR)
     
-    # 3. Generate data for each KPI and save to CSV
+    # 5. Generate data for each KPI and save.
+    all_dfs = []
     for i in range(NUM_KPIS):
         kpi_name = all_kpi_names[i]
         kpi_type = kpi_types[i]
+        itsi_kpi_id = generate_kpi_id()
         
-        df_kpi = generate_kpi_data(kpi_name, kpi_type, timestamps)
+        df_kpi = generate_kpi_data(kpi_name, kpi_type, itsi_kpi_id, timestamps)
         
-        # 4. Save to CSV
-        filename = f"{kpi_name.replace(' ', '_')}.csv"
+        # Save each KPI's data to its own CSV file.
+        filename = f"{itsi_kpi_id}.csv"
         filepath = os.path.join(OUTPUT_DIR, filename)
         df_kpi.to_csv(filepath, index=False)
+        print(f"Generated {filepath} for KPI '{kpi_name}' (type: {kpi_type}).")
         
-        print(f"Generated {filepath}")
+        all_dfs.append(df_kpi)
+    
+    # (Optional) Combine all KPI data into one CSV file "model_test.csv".
+    combined_df = pd.concat(all_dfs, ignore_index=True)
+    combined_filepath = os.path.join(OUTPUT_DIR, "model_test.csv")
+    combined_df.to_csv(combined_filepath, index=False)
+    print(f"\nCombined data written to {combined_filepath}")
 
 if __name__ == "__main__":
     main()
