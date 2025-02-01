@@ -1,0 +1,11 @@
+This is more for me because I constantly forget everything:
+
+Say for this log in model_test.csv
+"2024-11-07T10:00:00.000-0600",8bc396b123a830ffd877b3ec,"432.4989059080963"
+
+The avg value for the kpi in the hour 10:00:00.000 is 432.4989059080963
+And the values for all subsequent KPIs will be represented in a similar way.
+
+The Model needs to look at the KPI average hour to hour, day to day, and says:
+    "yes this is a good candidate" or "no this is not a good candidate" 
+    based on various consistencies from day to day but also hour to hour
