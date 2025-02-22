@@ -1,0 +1,48 @@
+Plight — 2/1/25, 8:32 AM
+Alert value is the calculated value of the kpi.  The reason I did average was to get it down to one hour chunks, since kpis can be at 1, 5, or 15 minutes intervals.
+
+
+"2024-11-07T10:00:00.000-0600",8bc396b123a830ffd877b3ec,"432.4989059080963"
+
+The avg value for the kpi in the hour 10:00:00.000 is 432.4989059080963
+And the values for all subsequent KPIs will be represented in a similar way.
+
+Yeah will probably always do 1 hour roll ups.  Because the time span is unknown.  It's not all 3, it's one of the 3
+
+Some of the data in this CSV skips a couple of hours at a time
+
+Like 
+2024-10-30T19:00:00.000-0500	8bc396b123a830ffd877b3ec	0.6666666666666670
+2024-10-31T06:00:00.000-0500	8bc396b123a830ffd877b3ec	786.4873646209390
+2024-10-31T07:00:00.000-0500	8bc396b123a830ffd877b3ec	369.58086560364500
+
+Some of the data in this CSV includes, however, the off-hours
+
+Like
+2024-11-26T17:00:00.000-0600	8bc396b123a830ffd877b3ec	109.72131147541000
+2024-11-26T18:00:00.000-0600	8bc396b123a830ffd877b3ec	27.5
+2024-11-26T19:00:00.000-0600	8bc396b123a830ffd877b3ec	0.9069767441860470
+2024-11-26T20:00:00.000-0600	8bc396b123a830ffd877b3ec	0
+2024-11-26T21:00:00.000-0600	8bc396b123a830ffd877b3ec	0
+2024-11-26T22:00:00.000-0600	8bc396b123a830ffd877b3ec	0
+2024-11-26T23:00:00.000-0600	8bc396b123a830ffd877b3ec	0
+2024-11-27T00:00:00.000-0600	8bc396b123a830ffd877b3ec	0
+2024-11-27T01:00:00.000-0600	8bc396b123a830ffd877b3ec	0
+2024-11-27T02:00:00.000-0600	8bc396b123a830ffd877b3ec	0
+2024-11-27T03:00:00.000-0600	8bc396b123a830ffd877b3ec	0
+2024-11-27T04:00:00.000-0600	8bc396b123a830ffd877b3ec	0
+2024-11-27T05:00:00.000-0600	8bc396b123a830ffd877b3ec	0
+2024-11-27T06:00:00.000-0600	8bc396b123a830ffd877b3ec	717.1698113207550
+2024-11-27T07:00:00.000-0600	8bc396b123a830ffd877b3ec	426.5865168539330
+2024-11-27T08:00:00.000-0600	8bc396b123a830ffd877b3ec	370.3776223776220
+
+Thus, it's crucial that time plays a key role here. 
+
+"Consistent" data here is not so much that the average value is the same, but that there WERE consistent values at that same hour rollup for the average of the entire data set.
+
+Take this value, for example:
+2024-11-27T06:00:00.000-0600	8bc396b123a830ffd877b3ec	717.1698113207550
+
+Was there a similar average on the 26th? The 25th? 24th? Etc... 
+
+This is going to be tricky, because weekends and holiday's must be accounted for as well. 
