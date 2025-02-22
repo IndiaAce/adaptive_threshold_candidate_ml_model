@@ -1,13 +1,101 @@
-Plight — 2/1/25, 8:32 AM
-Alert value is the calculated value of the kpi.  The reason I did average was to get it down to one hour chunks, since kpis can be at 1, 5, or 15 minutes intervals.
+Okay for the 3rd version of this, we're going to take a different approach to the dev. Scratchpad will elaborate.
 
+############# SAMPLE OF DATA #############
+"_time","itsi_kpi_id","avg(alert_value)"
+"2024-12-04T06:00:00.000-0600",8bc396b123a830ffd877b3ec,"682.7245989304813"
+"2024-12-04T07:00:00.000-0600",8bc396b123a830ffd877b3ec,"358.51716247139586"
+"2024-12-04T08:00:00.000-0600",8bc396b123a830ffd877b3ec,"312.1051401869159"
+"2024-12-04T09:00:00.000-0600",8bc396b123a830ffd877b3ec,"389.4225663716814"
+"2024-12-04T10:00:00.000-0600",8bc396b123a830ffd877b3ec,"320.9347826086956"
+"2024-12-04T11:00:00.000-0600",8bc396b123a830ffd877b3ec,"383.5295454545454"
+"2024-12-04T12:00:00.000-0600",8bc396b123a830ffd877b3ec,"289.0660592255125"
+"2024-12-04T13:00:00.000-0600",8bc396b123a830ffd877b3ec,"281.0733333333333"
+"2024-12-04T14:00:00.000-0600",8bc396b123a830ffd877b3ec,"279.9366515837104"
+"2024-12-04T15:00:00.000-0600",8bc396b123a830ffd877b3ec,"295.51704545454544"
+"2024-12-04T16:00:00.000-0600",8bc396b123a830ffd877b3ec,"128.70967741935485"
+"2024-12-04T17:00:00.000-0600",8bc396b123a830ffd877b3ec,"207.11764705882354"
+"2024-12-04T18:00:00.000-0600",8bc396b123a830ffd877b3ec,"49.84615384615385"
+"2024-12-04T19:00:00.000-0600",8bc396b123a830ffd877b3ec,"1.25"
+"2024-12-04T20:00:00.000-0600",8bc396b123a830ffd877b3ec,0
+"2024-12-04T21:00:00.000-0600",8bc396b123a830ffd877b3ec,0
+"2024-12-04T22:00:00.000-0600",8bc396b123a830ffd877b3ec,0
+"2024-12-04T23:00:00.000-0600",8bc396b123a830ffd877b3ec,0
+"2024-12-05T00:00:00.000-0600",8bc396b123a830ffd877b3ec,0
+"2024-12-05T01:00:00.000-0600",8bc396b123a830ffd877b3ec,0
+"2024-12-05T02:00:00.000-0600",8bc396b123a830ffd877b3ec,0
+"2024-12-05T03:00:00.000-0600",8bc396b123a830ffd877b3ec,0
+"2024-12-05T04:00:00.000-0600",8bc396b123a830ffd877b3ec,0
+"2024-12-05T05:00:00.000-0600",8bc396b123a830ffd877b3ec,0
+"2024-12-05T06:00:00.000-0600",8bc396b123a830ffd877b3ec,"670.5797872340426"
+"2024-12-05T07:00:00.000-0600",8bc396b123a830ffd877b3ec,"341.10407239819006"
+"2024-12-05T08:00:00.000-0600",8bc396b123a830ffd877b3ec,"387.0211267605634"
+"2024-12-05T09:00:00.000-0600",8bc396b123a830ffd877b3ec,"292.04434589800445"
+"2024-12-05T10:00:00.000-0600",8bc396b123a830ffd877b3ec,"303.8629213483146"
+"2024-12-05T11:00:00.000-0600",8bc396b123a830ffd877b3ec,"388.5135135135135"
+"2024-12-05T12:00:00.000-0600",8bc396b123a830ffd877b3ec,"279.88235294117646"
+"2024-12-05T13:00:00.000-0600",8bc396b123a830ffd877b3ec,"245.90604026845637"
+"2024-12-05T14:00:00.000-0600",8bc396b123a830ffd877b3ec,"308.8164705882353"
+"2024-12-05T15:00:00.000-0600",8bc396b123a830ffd877b3ec,"266.0189189189189"
+"2024-12-05T16:00:00.000-0600",8bc396b123a830ffd877b3ec,122
+"2024-12-05T17:00:00.000-0600",8bc396b123a830ffd877b3ec,"109.26"
+"2024-12-05T18:00:00.000-0600",8bc396b123a830ffd877b3ec,"26.64"
+"2024-12-05T19:00:00.000-0600",8bc396b123a830ffd877b3ec,"1.5"
+"2024-12-05T20:00:00.000-0600",8bc396b123a830ffd877b3ec,0
+"2024-12-05T21:00:00.000-0600",8bc396b123a830ffd877b3ec,0
+"2024-12-05T22:00:00.000-0600",8bc396b123a830ffd877b3ec,0
+"2024-12-05T23:00:00.000-0600",8bc396b123a830ffd877b3ec,0
+"2024-12-06T00:00:00.000-0600",8bc396b123a830ffd877b3ec,0
+"2024-12-06T01:00:00.000-0600",8bc396b123a830ffd877b3ec,0
+"2024-12-06T02:00:00.000-0600",8bc396b123a830ffd877b3ec,0
+"2024-12-06T03:00:00.000-0600",8bc396b123a830ffd877b3ec,0
+"2024-12-06T04:00:00.000-0600",8bc396b123a830ffd877b3ec,0
+"2024-12-06T05:00:00.000-0600",8bc396b123a830ffd877b3ec,0
+"2024-12-06T06:00:00.000-0600",8bc396b123a830ffd877b3ec,"603.2748691099476"
+"2024-12-06T07:00:00.000-0600",8bc396b123a830ffd877b3ec,"474.09006928406467"
+"2024-12-06T08:00:00.000-0600",8bc396b123a830ffd877b3ec,"461.8103837471783"
+"2024-12-06T09:00:00.000-0600",8bc396b123a830ffd877b3ec,"317.4503311258278"
+"2024-12-06T10:00:00.000-0600",8bc396b123a830ffd877b3ec,"294.8913525498891"
+"2024-12-06T11:00:00.000-0600",8bc396b123a830ffd877b3ec,"294.4246575342466"
+"2024-12-06T12:00:00.000-0600",8bc396b123a830ffd877b3ec,"248.86428571428573"
+"2024-12-06T13:00:00.000-0600",8bc396b123a830ffd877b3ec,"209.5046511627907"
+"2024-12-06T14:00:00.000-0600",8bc396b123a830ffd877b3ec,"261.79455445544556"
+"2024-12-06T15:00:00.000-0600",8bc396b123a830ffd877b3ec,"230.6184971098266"
+"2024-12-06T16:00:00.000-0600",8bc396b123a830ffd877b3ec,"100.7914691943128"
+"2024-12-06T17:00:00.000-0600",8bc396b123a830ffd877b3ec,"117.2"
+"2024-12-06T18:00:00.000-0600",8bc396b123a830ffd877b3ec,"50.8125"
+"2024-12-06T19:00:00.000-0600",8bc396b123a830ffd877b3ec,"3.272727272727273"
 
+############# PROBLEM #############
+We have a CSV that contains a large list of KPI averages rolled up by their average value (alert_value) for that hour. 
+This data lives, and is desplayed, in Splunk, and there's about 2000 unique KPIs all with a variety of values/spikes/downtime. 
+These KPIs have very different meanings as well; 
+    * some indicate CPU usage on Netowrking devices, 
+    * some indicate user MFA logins
+    * some indicate 
+Some of this data is relatively consistent, which is to say it follows a pattern. User MFA logins are one such example:
+    There will be a spike of activity in the morning, some activity throughout the day, probably another spike from 1-2 PM and then a complete falloff in the night.
+    Some of this data is going to be completely sporatic throughout the day/night, like CPU %
+
+We wish to be able to identify what data is "consistent" and what data is "eratic"
+
+This is not about identifying what data has the exact same averages over time, but rather about identifying consistent patterns among each individual KPI
+For example:
+    * Does a KPI spike every day from 9-11 and then again from 12-2? And then regularly fall off completely from 8PM-6AM?
+    * Does a KPI remain relatively static (allowing some variance) from 8-5 and then fall off completely from 8PM-6AM?
+    * Is a KPI completely void of any pattern, spikes at 9AM on 11/1, 2, 5, 7, 12, but almost no activity at 9AM on the 3, 4, 6, 8-11?
+
+Again I state the importance of identifying the patterns in the entire data set, days, weeks, months, less so about the exact number. 
+
+############# NOTES/CONTEXT #############
+
+The avg(alert_value) is the calculated value of the kpi. 
+The reason he did average was to get it down to one hour chunks, since kpis can be at 1, 5, or 15 minutes intervals.
+
+So, for example:
 "2024-11-07T10:00:00.000-0600",8bc396b123a830ffd877b3ec,"432.4989059080963"
 
 The avg value for the kpi in the hour 10:00:00.000 is 432.4989059080963
 And the values for all subsequent KPIs will be represented in a similar way.
-
-Yeah will probably always do 1 hour roll ups.  Because the time span is unknown.  It's not all 3, it's one of the 3
 
 Some of the data in this CSV skips a couple of hours at a time
 
@@ -16,7 +104,8 @@ Like
 2024-10-31T06:00:00.000-0500	8bc396b123a830ffd877b3ec	786.4873646209390
 2024-10-31T07:00:00.000-0500	8bc396b123a830ffd877b3ec	369.58086560364500
 
-Some of the data in this CSV includes, however, the off-hours
+Some of the data in this CSV includes these, however, the missing-hours should be inferred as "0s" - thus, the model also needs to account for seasonality
+Not all data will be represented in this, the model also needs to account for this.
 
 Like
 2024-11-26T17:00:00.000-0600	8bc396b123a830ffd877b3ec	109.72131147541000
